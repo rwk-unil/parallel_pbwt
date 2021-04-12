@@ -622,7 +622,7 @@ std::vector<matches_t> report_matches_in_parallel(const hap_map_t& hap_map, cons
             }
         });
     }
-    std::cerr << "Running with " << THREADS << " threads " << std::endl;
+    //std::cerr << "Running with " << THREADS << " threads " << std::endl;
     for (auto& t : workers) {
         t.join();
     }

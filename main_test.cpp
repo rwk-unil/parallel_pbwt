@@ -37,6 +37,8 @@ namespace {
         auto result_seq = generate_a_d_arrays_for_positions_sequentially(TEST_MATRIX, positions_to_collect);
         auto result_par = generate_a_d_arrays_for_positions_in_parallel(TEST_MATRIX, positions_to_collect);
 
+        ASSERT_NE(result_seq.size(), 0);
+
         // Check if correct nubmer of results
         ASSERT_EQ(result_seq.size(), result_par.size());
 
@@ -99,6 +101,8 @@ namespace {
 
         result_seq = generate_a_d_arrays_for_positions_sequentially(hap_map, positions_to_collect);
         result_par = generate_a_d_arrays_for_positions_in_parallel(hap_map, positions_to_collect);
+
+        ASSERT_NE(result_seq.size(), 0);
 
         // Check if positions are the same
         EXPECT_TRUE(std::equal(result_seq.begin(), result_seq.end(),
