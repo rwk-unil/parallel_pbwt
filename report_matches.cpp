@@ -76,6 +76,7 @@ void report_set_maximal_matches(const std::string& filename, const std::string& 
         exit(-1);
     }
     
+    /// @todo CHANGE, do this the new way
     std::ostream* fp = &std::cout;
     std::ofstream ofs;
     if(ofname.compare("-")) {
@@ -93,6 +94,7 @@ void report_set_maximal_matches(const std::string& filename, const std::string& 
     std::cerr << "Reading BCF file : ";
     printElapsedTime(begin, end);
 
+    /// @todo REMOVE, use new version
     std::ostream& os(*fp);
     if (THREADS == 1) {
         std::cerr << "Running sequential version (1 thread)" << std::endl;
@@ -101,7 +103,7 @@ void report_set_maximal_matches(const std::string& filename, const std::string& 
             ofs << "MATCH\t" << m.a << "\t" << m.b << "\t" << m.start << "\t" << m.end << "\t" << m.end-m.start << "\n";
         }
     } else {
-        auto block_matches = report_matches_in_parallel(hap_map, THREADS);
+        auto block_matches = report_matches_in_parallel<true /* TO FILE */>(hap_map, THREADS, ofname);
         for (const auto& matches : block_matches) {
             for (const auto& m : matches) {
                 ofs << "MATCH\t" << m.a << "\t" << m.b << "\t" << m.start << "\t" << m.end << "\t" << m.end-m.start << "\n";

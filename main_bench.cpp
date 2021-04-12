@@ -1,7 +1,10 @@
-#include<benchmark/benchmark.h>
-#include<pbwt_exp.hpp>
+#include <benchmark/benchmark.h>
+#include <pbwt_exp.hpp>
+
+#include <string>
 
 constexpr size_t MAX_THREADS = 4;
+//const std::string INPUT_FILE = "chr20_bi_allelic.bcf";
 
 ///////////////////////////
 // Benchmark definitions //
@@ -11,6 +14,7 @@ constexpr size_t MAX_THREADS = 4;
 static void BM_generate_a_d_arrays_sequentially(benchmark::State& state) {
     const size_t THREADS = state.range(0); // Number of positions required (to start THREADS threads)
     auto hap_map = read_from_macs_file<bool>("11k.macs"); // TODO CHANGE FILE
+    //auto hap_map = read_from_bcf_file(INPUT_FILE);
     const size_t N = hap_map.size(); // Number of variant sites
     auto positions_to_collect = generate_positions_to_collect(N, THREADS);
 
@@ -27,6 +31,7 @@ static void BM_generate_a_d_arrays_sequentially(benchmark::State& state) {
 static void BM_generate_a_d_arrays_in_parallel(benchmark::State& state) {
     const size_t THREADS = state.range(0); // Number of positions required (to start THREADS threads)
     auto hap_map = read_from_macs_file<bool>("11k.macs");
+    //auto hap_map = read_from_bcf_file(INPUT_FILE);
     const size_t N = hap_map.size(); // Number of variant sites
     auto positions_to_collect = generate_positions_to_collect(N, THREADS);
 
@@ -42,6 +47,7 @@ static void BM_generate_a_d_arrays_in_parallel(benchmark::State& state) {
 // Benchmark how long it takes to report set maximal matches
 static void BM_report_matches_sequential(benchmark::State& state) {
     auto hap_map = read_from_macs_file<bool>("11k.macs");
+    //auto hap_map = read_from_bcf_file(INPUT_FILE);
 
     matches_t result;
 
@@ -54,6 +60,7 @@ static void BM_report_matches_sequential(benchmark::State& state) {
 
 static void BM_report_matches_in_parallel_a_d_sequentially_generated(benchmark::State& state) {
     auto hap_map = read_from_macs_file<bool>("11k.macs");
+    //auto hap_map = read_from_bcf_file(INPUT_FILE);
 
     std::vector<matches_t> result;
 
@@ -66,6 +73,7 @@ static void BM_report_matches_in_parallel_a_d_sequentially_generated(benchmark::
 
 static void BM_report_matches_in_parallel(benchmark::State& state) {
     auto hap_map = read_from_macs_file<bool>("11k.macs");
+    //auto hap_map = read_from_bcf_file(INPUT_FILE);
 
     std::vector<matches_t> result;
 
