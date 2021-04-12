@@ -6,6 +6,7 @@
 #include <vector>
 #include <numeric>
 #include <thread>
+#include <mutex>
 
 #include "synced_bcf_reader.h"
 
@@ -236,7 +237,7 @@ inline void algorithm_2_BuildPrefixAndDivergenceArrays(const std::vector<bool>& 
 // Algorithm 4 in Durbin 2014
 /// @TODO DOXY
 inline
-void algorithm_4_ReportSetMaximalMatches(const std::vector<bool>& x, const size_t N, const size_t& k, const ppa_t& a, d_t& d, matches_t& matches) {
+void algorithm_4_ReportSetMaximalMatches(const std::vector<bool>& x, const size_t N, const size_t& k, const ppa_t& a, d_t& d, matches_t& matches, FILE* pFile) {
     // Sentinels
     d[0] = k+1;
     d.push_back(k+1);
@@ -250,42 +251,50 @@ void algorithm_4_ReportSetMaximalMatches(const std::vector<bool>& x, const size_
         // Scan down the array
         if (d[i] <= d[i+1]) {
             while (d[m+1] <= d[i]) {
-                if (k < N and x[a[m]] == x[a[i]]) { // y[i] is x[a[i]]
+                if (x[a[m--]] == x[a[i]] and k < N) { // y[i] is x[a[i]]
                     goto next_i;
                 }
-                m--;
             }
         }
 
         // Scan up the array
         if (d[i] >= d[i+1]) {
             while (d[n] <= d[i+1]) {
-                if (k < N and x[a[n]] == x[a[i]]) { // y[i] is x[a[i]]
+                if (x[a[n++]] == x[a[i]] and k < N) { // y[i] is x[a[i]]
                     goto next_i;
                 }
-                n++;
             }
         }
 
         // Reporting
+        //mutex.lock();
         for (size_t j = m+1; j < i; ++j) {
-            // Report
-            matches.push_back({
-                .a = a[i],
-                .b = a[j],
-                .start = d[i],
-                .end = k
-            });
+            // Report (if length > 0)
+            if (d[i] != k) {
+                //printf("MATCH\t%d\t%d\t%d\t%d\t%d\n", a[i], a[j], d[i], k, k-d[i]);
+                fprintf(pFile, "MATCH\t%d\t%d\t%d\t%d\t%d\n", a[i], a[j], d[i], k, k-d[i]);
+                //matches.push_back({
+                //    .a = a[i],
+                //    .b = a[j],
+                //    .start = d[i],
+                //    .end = k
+                //});
+            }
         }
         for (size_t j = i+1; j < n; ++j) {
-            // Report
-            matches.push_back({
-                .a = a[i],
-                .b = a[j],
-                .start = d[i+1],
-                .end = k
-            });
+            // Report (if length > 0)
+            if (d[i+1] != k) {
+                //printf("MATCH\t%d\t%d\t%d\t%d\t%d\n", a[i], a[j], d[i], k, k-d[i+1]);
+                fprintf(pFile, "MATCH\t%d\t%d\t%d\t%d\t%d\n", a[i], a[j], d[i], k, k-d[i]);
+                //matches.push_back({
+                //    .a = a[i],
+                //    .b = a[j],
+                //    .start = d[i+1],
+                //    .end = k
+                //});
+            }
         }
+        //mutex.unlock();
 
         next_i:
         ;
@@ -394,7 +403,7 @@ void fix_a_d(std::vector<a_d_arrays_at_pos>& a_d_arrays) {
 // PBWT Process Matrix from position start to position stop (if stop is 0 process to the end)
 // If report matches is active this algorithm performs ReportSetMaximalMatches, else it doesn't (resolved at compile time)
 template<const bool REPORT_MATCHES = false>
-a_d_arrays_at_pos process_matrix_sequentially(const hap_map_t& hap_map, const size_t start, const size_t stop = 0, const ppa_t& given_a = {}, const d_t& given_d = {}, matches_t& matches = __place_holder__) {
+a_d_arrays_at_pos process_matrix_sequentially(const hap_map_t& hap_map, const size_t start, const size_t stop = 0, const ppa_t& given_a = {}, const d_t& given_d = {}, matches_t& matches = __place_holder__, FILE* pFile = nullptr) {
     const size_t effective_stop = stop ? stop : hap_map.size();
     const size_t N = hap_map.size(); // Number of variant sites (total)
     const size_t M = hap_map[0].size(); // Number of haplotypes
@@ -414,10 +423,14 @@ a_d_arrays_at_pos process_matrix_sequentially(const hap_map_t& hap_map, const si
     }
 
     for (size_t k = start; k < effective_stop; ++k) {
-        if constexpr (REPORT_MATCHES) algorithm_4_ReportSetMaximalMatches(hap_map[k], N, k, a, d, matches);
+        if constexpr (REPORT_MATCHES) algorithm_4_ReportSetMaximalMatches(hap_map[k], N, k, a, d, matches, pFile);
         algorithm_2_BuildPrefixAndDivergenceArrays(hap_map[k], k, a, b, d, e);
     }
-    if constexpr (REPORT_MATCHES) algorithm_4_ReportSetMaximalMatches(hap_map[effective_stop], N, effective_stop, a, d, matches);
+    if constexpr (REPORT_MATCHES) {
+        if (effective_stop == N) {
+            algorithm_4_ReportSetMaximalMatches(hap_map[effective_stop], N, effective_stop, a, d, matches, pFile);
+        }
+    }
 
     // Return a and d at stop position
     return {effective_stop, a, d};
@@ -548,18 +561,23 @@ std::vector<matches_t> report_matches_in_parallel(const hap_map_t& hap_map, cons
 
     for (size_t i = 0; i < THREADS; ++i) {
         workers[i] = std::thread([=, &hap_map, &a_d_arrays, &matches]{
+            std::stringstream filename;
+            filename << "test_file_" << i << ".txt";
+            FILE* pFile = fopen(filename.str().c_str(), "w");
+
             // If first thread start at 0 else start at ending position of last thread
             const size_t start = (i == 0) ? 0 : a_d_arrays[i-1].pos;
             // If last thread set stop to special value of 0 else stop at position
             const size_t stop = (i == THREADS-1) ? 0 : a_d_arrays[i].pos;
             if (i == 0) {
                 // The first thread processes from natural order (empty a,d arrays given)
-                process_matrix_sequentially<true /* Report */>(hap_map, start, stop, {/*a*/}, {/*d*/}, matches[i]);
+                process_matrix_sequentially<true /* Report */>(hap_map, start, stop, {/*a*/}, {/*d*/}, matches[i], pFile);
             } else {
-                process_matrix_sequentially<true /* Report */>(hap_map, start, stop, a_d_arrays[i-1].a, a_d_arrays[i-1].d, matches[i]);
+                process_matrix_sequentially<true /* Report */>(hap_map, start, stop, a_d_arrays[i-1].a, a_d_arrays[i-1].d, matches[i], pFile);
             }
         });
     }
+    std::cerr << "Running with " << THREADS << " threads " << std::endl;
     for (auto& t : workers) {
         t.join();
     }

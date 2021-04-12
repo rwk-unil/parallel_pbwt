@@ -32,6 +32,9 @@ benchmark : $(BENCHMARK_EXECUTABLE)
 test : $(TEST_EXECUTABLE)
 	./$(TEST_EXECUTABLE)
 
+app : report_matches.o
+	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+
 $(BENCHMARK_EXECUTABLE) : $(BENCHMARK_OBJ)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
