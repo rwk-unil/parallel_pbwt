@@ -1,0 +1,4 @@
+*.d
+*.o
+pbwt_test
+pbwt_bench
