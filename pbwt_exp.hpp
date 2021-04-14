@@ -155,7 +155,7 @@ std::vector<std::vector<T> > read_from_bcf_file(const std::string& filename, siz
             int line_max_ploidy = ngt / n_samples;
             size_t sample_counter = 0;
 
-            for (int i = 0; i < n_samples; ++i) {
+            for (size_t i = 0; i < n_samples; ++i) {
                 if (max_n and (sample_counter >= max_n)) {
                     break;
                 }
@@ -603,15 +603,6 @@ std::vector<matches_t> report_matches_in_parallel(const hap_map_t& hap_map, cons
 
     for (size_t i = 0; i < THREADS; ++i) {
         workers[i] = std::thread([=, &hap_map, &a_d_arrays, &matches]{
-            auto f = [&](size_t ai, size_t bi, size_t start, size_t end){
-                matches[i].push_back({
-                    .a = ai,
-                    .b = bi,
-                    .start = start,
-                    .end = end
-                });
-            };
-
             std::stringstream filename;
             filename << ofname << "_" << i;
             FILE* pFile = nullptr;
