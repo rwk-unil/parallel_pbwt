@@ -76,39 +76,19 @@ void report_set_maximal_matches(const std::string& filename, const std::string& 
         exit(-1);
     }
     
-    /// @todo CHANGE, do this the new way
-    std::ostream* fp = &std::cout;
-    std::ofstream ofs;
-    if(ofname.compare("-")) {
-        ofs = std::ofstream(ofname, ofs.out);
-        if (!ofs.is_open()) {
-            std::cerr << "Could not open file " << ofname << std::endl;
-            exit(-1);
-        }
-        fp = &ofs;
-    }
-    
     auto begin = std::chrono::steady_clock::now();
     auto hap_map = read_from_bcf_file(filename);
     auto end = std::chrono::steady_clock::now();
     std::cerr << "Reading BCF file : ";
     printElapsedTime(begin, end);
 
-    /// @todo REMOVE, use new version
-    std::ostream& os(*fp);
     if (THREADS == 1) {
-        std::cerr << "Running sequential version (1 thread)" << std::endl;
-        auto matches = report_matches_sequentially(hap_map);
-        for (const auto& m : matches) {
-            ofs << "MATCH\t" << m.a << "\t" << m.b << "\t" << m.start << "\t" << m.end << "\t" << m.end-m.start << "\n";
-        }
+        report_matches_sequentially_to_file(hap_map, ofname);
     } else {
-        auto block_matches = report_matches_in_parallel<true /* TO FILE */>(hap_map, THREADS, ofname);
-        for (const auto& matches : block_matches) {
-            for (const auto& m : matches) {
-                ofs << "MATCH\t" << m.a << "\t" << m.b << "\t" << m.start << "\t" << m.end << "\t" << m.end-m.start << "\n";
-            }
+        if (filename.compare("-") == 0) {
+            std::cerr << "Cannot output to stdout with multi-threaded version" << std::endl;
+            exit(-1);
         }
+        report_matches_in_parallel<true /* TO FILE */>(hap_map, THREADS, ofname);
     }
-    ofs.close();
 }

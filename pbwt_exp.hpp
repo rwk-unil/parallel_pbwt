@@ -536,6 +536,26 @@ matches_t report_matches_sequentially(const hap_map_t& hap_map) {
     return matches;
 }
 
+void report_matches_sequentially_to_file(const hap_map_t& hap_map, const std::string& ofname) {
+    if (ofname.compare("-") == 0) {
+        auto report = [](size_t ai, size_t bi, size_t start, size_t end){
+            printf("MATCH\t%zu\t%zu\t%zu\t%zu\t%zu\n", ai, bi, start, end, end-start);
+        };
+
+        process_matrix_sequentially<true /* Report Matches */>(hap_map, 0, 0, {}, {}, report);
+    } else {
+        FILE* pFile = fopen(ofname.c_str(), "w"); // Old school file pointer
+
+        // Reporting lambda function (copy captures the file pointer)
+        auto report_to_file = [=](size_t ai, size_t bi, size_t start, size_t end){
+            // Same reporting function as in Durbin2014
+            fprintf(pFile, "MATCH\t%zu\t%zu\t%zu\t%zu\t%zu\n", ai, bi, start, end, end-start);
+        };
+
+        process_matrix_sequentially<true /* Report Matches */>(hap_map, 0, 0, {}, {}, report_to_file);
+    }
+}
+
 std::vector<matches_t> report_matches_in_parallel_a_d_sequential(const hap_map_t& hap_map, const size_t THREADS = 1) {
     auto positions_to_collect = generate_positions_to_collect(hap_map.size(), THREADS);
     auto a_d_arrays = generate_a_d_arrays_for_positions_sequentially(hap_map, positions_to_collect);
@@ -593,13 +613,13 @@ std::vector<matches_t> report_matches_in_parallel(const hap_map_t& hap_map, cons
             };
 
             std::stringstream filename;
-            filename << ofname << i << ".txt";
+            filename << ofname << "_" << i;
             FILE* pFile = nullptr;
             if constexpr (TO_FILES) {
                 pFile = fopen(filename.str().c_str(), "w");
             }
             auto report_to_file = [=](size_t ai, size_t bi, size_t start, size_t end){
-                fprintf(pFile, "MATCH\t%d\t%d\t%d\t%d\t%d\n", ai, bi, start, end, end-start);
+                fprintf(pFile, "MATCH\t%zu\t%zu\t%zu\t%zu\t%zu\n", ai, bi, start, end, end-start);
             };
 
             // If first thread start at 0 else start at ending position of last thread
