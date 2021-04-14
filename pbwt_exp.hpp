@@ -287,7 +287,7 @@ void algorithm_4_ReportSetMaximalMatches(const std::vector<bool>& x, const size_
         for (size_t j = i+1; j < n; ++j) {
             // Report (if length > 0)
             if (d[i+1] != k) {
-                report(a[i], a[j], d[i+1], k-d[i+1]);
+                report(a[i], a[j], d[i+1], k);
                 //printf("MATCH\t%d\t%d\t%d\t%d\t%d\n", a[i], a[j], d[i+1], k, k-d[i+1]);
                 //fprintf(pFile, "MATCH\t%d\t%d\t%d\t%d\t%d\n", a[i], a[j], d[i+1], k, k-d[i+1]);
                 //matches.push_back({
