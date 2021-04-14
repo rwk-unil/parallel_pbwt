@@ -251,18 +251,20 @@ void algorithm_4_ReportSetMaximalMatches(const std::vector<bool>& x, const size_
         // Scan down the array
         if (d[i] <= d[i+1]) {
             while (d[m+1] <= d[i]) {
-                if (x[a[m--]] == x[a[i]] and k < N) { // y[i] is x[a[i]]
+                if (k < N and x[a[m]] == x[a[i]]) { // y[i] is x[a[i]]
                     goto next_i;
                 }
+                m--;
             }
         }
 
         // Scan up the array
         if (d[i] >= d[i+1]) {
             while (d[n] <= d[i+1]) {
-                if (x[a[n++]] == x[a[i]] and k < N) { // y[i] is x[a[i]]
+                if (k < N and x[a[n]] == x[a[i]]) { // y[i] is x[a[i]]
                     goto next_i;
                 }
+                n++;
             }
         }
 
@@ -430,7 +432,7 @@ a_d_arrays_at_pos process_matrix_sequentially(const hap_map_t& hap_map, const si
     }
     if constexpr (REPORT_MATCHES) {
         if (effective_stop == N) {
-            algorithm_4_ReportSetMaximalMatches(hap_map[effective_stop], N, effective_stop, a, d, report);
+            algorithm_4_ReportSetMaximalMatches(hap_map[N-1], N, N, a, d, report); // Special case
         }
     }
 
