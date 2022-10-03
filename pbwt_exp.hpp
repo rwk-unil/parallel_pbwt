@@ -7,6 +7,7 @@
 #include <numeric>
 #include <thread>
 #include <mutex>
+#include <algorithm>
 
 #include "synced_bcf_reader.h"
 
@@ -439,6 +440,135 @@ a_d_arrays_at_pos process_matrix_sequentially(const hap_map_t& hap_map, const si
     // Return a and d at stop position
     return {effective_stop, a, d};
 }
+
+//#define EXPERIMENTAL
+#ifdef EXPERIMENTAL
+////// EXPERIMENTAL
+// Algorithm 2 in Durbin 2014
+/// @TODO DOXY
+inline void algorithm_2_BuildPrefixAndDivergenceArrays_linked_list(const std::vector<bool>& x, const size_t& k, size_t& start_a, ppa_t& a, ppa_t& b, d_t& d, d_t& e) {
+    const size_t M = x.size();
+    size_t u = 0, v = 0, p = k+1, q = k+1;
+
+    size_t next = start_a;
+    start_a = -1; // No start yet
+    size_t last_a = -1;
+    size_t start_b = -1;
+    size_t last_b = -1;
+    if (d[0] > p) p = d[0];
+    if (d[0] > q) q = d[0];
+    if (x[next] == 0) { // y[i] is x[a[i]]
+        // Create list
+        start_a = next; // Nop
+        last_a = next;
+        d[u] = p; u++; p = 0;
+    } else {
+        // Create list
+        start_b = next;
+        last_b = next;
+        e[v] = q; v++; q = 0;
+    }
+    next = a[next];
+    for (size_t i = 1; i < M; ++i) {
+        if (d[i] > p) p = d[i];
+        if (d[i] > q) q = d[i];
+        if (x[next] == 0) { // y[i] is x[a[i]]
+            //a[u] = a[i];
+            if (start_a == -1) {
+                // Create list
+                start_a = next;
+            } else {
+                // Link list
+                a[last_a] = next;
+            }
+            last_a = next;
+            d[u] = p; u++; p = 0;
+        } else {
+            //b[v] = a[i];
+            if (start_b == -1) {
+                // Create list
+                start_b = next;
+            } else {
+                // Link list
+                a[last_b] = next;
+            }
+            last_b = next;
+            e[v] = q; v++; q = 0;
+        }
+        next = a[next];
+    }
+
+    // Concatenations
+    //std::copy(b.begin(), b.begin()+v, a.begin()+u);
+    if (start_a == -1) {
+        // Only 1's
+        start_a = start_b;
+    } else {
+        if (start_b != -1) {
+            // 0's and 1's, link the two lists
+            a[last_a] = start_b;
+        } else {
+            // Only 0's
+            // Nothing to do
+        }
+    }
+    std::copy(e.begin(), e.begin()+v, d.begin()+u);
+}
+
+// PBWT Process Matrix from position start to position stop (if stop is 0 process to the end)
+// If report matches is active this algorithm performs ReportSetMaximalMatches, else it doesn't (resolved at compile time)
+template<const bool REPORT_MATCHES = false>
+a_d_arrays_at_pos process_matrix_sequentially_linked_list(const hap_map_t& hap_map, const size_t start, const size_t stop = 0, const ppa_t& given_a = {}, const d_t& given_d = {}, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report = nullptr) {
+    const size_t effective_stop = stop ? stop : hap_map.size();
+    const size_t N = hap_map.size(); // Number of variant sites (total)
+    const size_t M = hap_map[0].size(); // Number of haplotypes
+
+    size_t start_a = 0;
+    ppa_t a(M), b(M);
+    if (given_a.size()) { // If a is given copy it
+        start_a = given_a.at(0);
+        size_t current_pos = start;
+        for (size_t i = 1; i < M; ++i) {
+            // Current := next (linked list conversion)
+            a[current_pos] = given_a.at(i);
+            current_pos = given_a.at(i);
+        }
+        a[current_pos] = -1; // End of linked list
+    } else { // Else use natural order (0,1,2,...,M-1)
+        start_a = 0;
+        std::iota(a.begin(), a.end(), 1); // Next element 1,2,...,M-2
+    }
+
+    d_t d(M), e(M);
+    if (given_d.size()) { // If d is given copy it
+        std::copy(given_d.begin(), given_d.end(), d.begin());
+    } else { // Else use a d filled with "start"
+        std::fill(d.begin(), d.end(), start);
+    }
+
+    // Commented code below because a is now a linked list
+    for (size_t k = start; k < effective_stop; ++k) {
+        //if constexpr (REPORT_MATCHES) algorithm_4_ReportSetMaximalMatches(hap_map[k], N, k, a, d, report);
+        algorithm_2_BuildPrefixAndDivergenceArrays_linked_list(hap_map[k], k, start_a, a, b, d, e);
+    }
+    //if constexpr (REPORT_MATCHES) {
+    //    if (effective_stop == N) {
+    //        algorithm_4_ReportSetMaximalMatches(hap_map[N-1], N, N, a, d, report); // Special case
+    //    }
+    //}
+
+    // Return a and d at stop position
+    ppa_t ppa(M);
+    ppa[0] = start_a;
+    size_t next = a[start_a];
+    for (size_t i = 1; i < M; ++i) {
+        ppa[i] = next;
+        next = a[next];
+    }
+    return {effective_stop, ppa, d};
+}
+//////
+#endif /* EXPERIMENTAL */
 
 std::vector<size_t> generate_positions_to_collect(const size_t N, const size_t THREADS) {
     if (THREADS == 0) {std::cerr << "THREADS should be at least 1" << std::endl; return {};} // Edge case, should not happen
