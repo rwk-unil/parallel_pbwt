@@ -347,6 +347,81 @@ void algorithm_4_ReportSetMaximalMatches(const std::vector<bool>& x, const size_
     d.pop_back(); // Remove the extra sentinel
 }
 
+// Algorithm 5 in Durbin 2014
+/// @TODO DOXY
+/// @todo requires access to full a, d, x, and u
+inline
+void algorithm_5_UpdateZmatches(const hap_map_t& hap_map, const size_t N, const size_t& k, const std::vector<a_d_arrays_at_pos>& ads, const std::vector<bool>& query, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
+    /* requires to build the u arrays, as well as the cc array of c's (number of 0s in y) */
+
+    // Create u's if non existing (equiv to FM-index), the evolution of u over creation of a
+    // Create c's if non existing (number of 0's in y, same as number of 0's in x)
+    const size_t M = ads[0].a.size();
+    size_t e = 0;
+    size_t f = 0;
+    size_t g = M;
+    size_t e1(0), f1(0), g1(0); // e', f', g'
+    size_t n_tot(0), tot_len(0);
+
+    // For every position
+    for (size_t k = 0; k < N; ++k) {
+        std::vector<size_t> u(M+1); /* Number of 0's up to and including this position */
+        size_t c = 0;
+        for (size_t i = 0; i < M; ++i) {
+            u[i] = c;
+            if (hap_map[k][ads[k].a[i]] == 0) {
+                c++;
+            }
+        }
+        u[M] = c; /* Need one off the end of update intervals */
+
+        // Use classic FM updates to extend [f,g) interval to next position
+        f1 = query[k] ? c + (f - u[f]) : u[f];
+        g1 = query[k] ? c + (g - u[g]) : u[g];
+        //f1 = query[k] ? cc[k] + (f - u[k][f]) : u[k][f];
+        //g1 = query[k] ? cc[k] + (g - u[k][g]) : u[k][g];
+        if (g1 > f1) { // We can just proceed, no change to e
+            f = f1;
+            g = g1;
+        } else { // We have reached a maximum need to report and update e, f', g'
+            for (size_t i = f; i < g; ++i) { // First report matches
+                report(-1 /* query */, ads[k].a[i], e, k);
+            }
+            n_tot++;
+            tot_len += k-e;
+            // Then Update e,f,g
+            /// @todo check this and subsequent references to k+1
+            e1 = ads[k+1].d[f1] - 1; // y[f1] and y[f1-1] diverge here, so upper bound for e
+            // note that the y's are haplotypes, here we store the global hap map as transposed so we don't have "y's"
+            if ((query[e1] == 0 && f1 > 0) || f1 == M) {
+                f1 = g1 - 1;
+                while (query[e1-1] == hap_map[e1-1][ads[k+1].a[f1]]) {
+                    e1--;
+                }
+                while (ads[k+1].d[f1] <= e1) {
+                    f1--;
+                }
+            } else if (f1 < M) {
+                g1 = f1 + 1;
+                while (query[e1-1] == hap_map[e1-1][ads[k+1].a[f1]]) {
+                    e1--;
+                }
+                while (g1 < M && ads[k+1].d[g1] <= e1) {
+                    g1++;
+                }
+            }
+            e = e1;
+            f = f1;
+            g = g1;
+        }
+    }
+    for (size_t i = f; i < g; ++i) {
+        report(-1 /* query */, ads[N].a[i], e, N);
+        ++n_tot;
+        tot_len += N-e;
+    }
+}
+
 // This fixes a and d between two indexes [start, stop[ given the previous a and d's
 // Algorithm 2 in paper
 inline
