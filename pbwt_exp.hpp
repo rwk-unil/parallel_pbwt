@@ -234,6 +234,46 @@ inline void algorithm_2_BuildPrefixAndDivergenceArrays(const std::vector<bool>& 
     std::copy(e.begin(), e.begin()+v, d.begin()+u);
 }
 
+// Algorithm 3 in Durbin 2014
+/// @TODO DOXY
+inline
+void algorithm_3_ReportLongMatches(const std::vector<bool>& x, const size_t N, const size_t& k, const size_t& L, const ppa_t& a, d_t& d, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
+    size_t u = 0;
+    size_t v = 0;
+    size_t ia = 0;
+    size_t ib = 0;
+    size_t i0 = 0;
+    size_t dmin = 0;
+    ppa_t a_(N);
+    ppa_t b_(N);
+
+    const size_t M = a.size();
+
+    for (size_t i = 0; i < M; ++i) {
+        if (d[i] > k-L) {
+            if (u && v) { /* Then there is something to report */
+                for (ia = i0; ia < i; ++ia) {
+                    for (ib = ia+1, dmin = 0; ib < i; ++ib) {
+                        if (d[ib] > dmin) dmin = d[ib];
+                        // y[i] is x[a[i]]
+                        if (x[a[ib]] != x[a[ia]]) {
+                            report(a[ia], a[ib], dmin, k);
+                        }
+                    }
+                } /* end for all */
+            }
+            u = 0;
+            v = 0;
+            i0 = i;
+        }
+        if (x[a[i]] == 0) {
+            u++;
+        } else {
+            v++;
+        }
+    }
+}
+
 
 // Algorithm 4 in Durbin 2014
 /// @TODO DOXY
