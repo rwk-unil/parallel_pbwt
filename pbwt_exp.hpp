@@ -237,20 +237,17 @@ inline void algorithm_2_BuildPrefixAndDivergenceArrays(const std::vector<bool>& 
 // Algorithm 3 in Durbin 2014
 /// @TODO DOXY
 inline
-void algorithm_3_ReportLongMatches(const std::vector<bool>& x, const size_t N, const size_t& k, const size_t& L, const ppa_t& a, d_t& d, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
+void algorithm_3_ReportLongMatches(const std::vector<bool>& x, const size_t N, const size_t& k, const size_t& L, const ppa_t& a, d_t& d, size_t& i0, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
     size_t u = 0;
     size_t v = 0;
     size_t ia = 0;
     size_t ib = 0;
-    size_t i0 = 0;
     size_t dmin = 0;
-    ppa_t a_(N);
-    ppa_t b_(N);
 
     const size_t M = a.size();
 
     for (size_t i = 0; i < M; ++i) {
-        if (d[i] > k-L) {
+        if (d[i] > k-L) { /** @todo check this case (underflow behavior) */
             if (u && v) { /* Then there is something to report */
                 for (ia = i0; ia < i; ++ia) {
                     for (ib = ia+1, dmin = 0; ib < i; ++ib) {
@@ -347,80 +344,93 @@ void algorithm_4_ReportSetMaximalMatches(const std::vector<bool>& x, const size_
     d.pop_back(); // Remove the extra sentinel
 }
 
+#if 0
+typedef struct alg_5_vars_t {
+    size_t e;
+    size_t f;
+    size_t g;
+} alg_5_vars_t;
+
 // Algorithm 5 in Durbin 2014
 /// @TODO DOXY
 /// @todo requires access to full a, d, x, and u
 inline
-void algorithm_5_UpdateZmatches(const hap_map_t& hap_map, const size_t N, const size_t& k, const std::vector<a_d_arrays_at_pos>& ads, const std::vector<bool>& query, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
+void algorithm_5_UpdateZmatches(const hap_map_t& hap_map, const size_t N, const size_t& k,
+    const a_d_arrays_at_pos& ads, const a_d_arrays_at_pos& nads,
+    size_t& e, size_t& f, size_t& g,
+    const std::vector<bool>& query, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report) {
     /* requires to build the u arrays, as well as the cc array of c's (number of 0s in y) */
 
     // Create u's if non existing (equiv to FM-index), the evolution of u over creation of a
     // Create c's if non existing (number of 0's in y, same as number of 0's in x)
-    const size_t M = ads[0].a.size();
+    const size_t M = ads.a.size();
+#if 0 /* Move to init outside */
     size_t e = 0;
     size_t f = 0;
     size_t g = M;
-    size_t e1(0), f1(0), g1(0); // e', f', g'
     size_t n_tot(0), tot_len(0);
+#endif
+    size_t e1(0), f1(0), g1(0); // e', f', g'
 
-    // For every position
-    for (size_t k = 0; k < N; ++k) {
-        std::vector<size_t> u(M+1); /* Number of 0's up to and including this position */
-        size_t c = 0;
-        for (size_t i = 0; i < M; ++i) {
-            u[i] = c;
-            if (hap_map[k][ads[k].a[i]] == 0) {
-                c++;
-            }
-        }
-        u[M] = c; /* Need one off the end of update intervals */
-
-        // Use classic FM updates to extend [f,g) interval to next position
-        f1 = query[k] ? c + (f - u[f]) : u[f];
-        g1 = query[k] ? c + (g - u[g]) : u[g];
-        //f1 = query[k] ? cc[k] + (f - u[k][f]) : u[k][f];
-        //g1 = query[k] ? cc[k] + (g - u[k][g]) : u[k][g];
-        if (g1 > f1) { // We can just proceed, no change to e
-            f = f1;
-            g = g1;
-        } else { // We have reached a maximum need to report and update e, f', g'
-            for (size_t i = f; i < g; ++i) { // First report matches
-                report(-1 /* query */, ads[k].a[i], e, k);
-            }
-            n_tot++;
-            tot_len += k-e;
-            // Then Update e,f,g
-            /// @todo check this and subsequent references to k+1
-            e1 = ads[k+1].d[f1] - 1; // y[f1] and y[f1-1] diverge here, so upper bound for e
-            // note that the y's are haplotypes, here we store the global hap map as transposed so we don't have "y's"
-            if ((query[e1] == 0 && f1 > 0) || f1 == M) {
-                f1 = g1 - 1;
-                while (query[e1-1] == hap_map[e1-1][ads[k+1].a[f1]]) {
-                    e1--;
-                }
-                while (ads[k+1].d[f1] <= e1) {
-                    f1--;
-                }
-            } else if (f1 < M) {
-                g1 = f1 + 1;
-                while (query[e1-1] == hap_map[e1-1][ads[k+1].a[f1]]) {
-                    e1--;
-                }
-                while (g1 < M && ads[k+1].d[g1] <= e1) {
-                    g1++;
-                }
-            }
-            e = e1;
-            f = f1;
-            g = g1;
+    std::vector<size_t> u(M+1); /* Number of 0's up to and including this position */
+    size_t c = 0;
+    for (size_t i = 0; i < M; ++i) {
+        u[i] = c;
+        if (hap_map[k][ads[k].a[i]] == 0) {
+            c++;
         }
     }
+    u[M] = c; /* Need one off the end of update intervals */
+
+    // Use classic FM updates to extend [f,g) interval to next position
+    f1 = query[k] ? c + (f - u[f]) : u[f];
+    g1 = query[k] ? c + (g - u[g]) : u[g];
+    //f1 = query[k] ? cc[k] + (f - u[k][f]) : u[k][f];
+    //g1 = query[k] ? cc[k] + (g - u[k][g]) : u[k][g];
+    if (g1 > f1) { // We can just proceed, no change to e
+        f = f1;
+        g = g1;
+    } else { // We have reached a maximum need to report and update e, f', g'
+        for (size_t i = f; i < g; ++i) { // First report matches
+            report(-1 /* query */, ads[k].a[i], e, k);
+        }
+        n_tot++;
+        tot_len += k-e;
+        // Then Update e,f,g
+        /// @todo check this and subsequent references to k+1
+        e1 = ads[k+1].d[f1] - 1; // y[f1] and y[f1-1] diverge here, so upper bound for e
+        // note that the y's are haplotypes, here we store the global hap map as transposed so we don't have "y's"
+        if ((query[e1] == 0 && f1 > 0) || f1 == M) {
+            f1 = g1 - 1;
+            while (query[e1-1] == hap_map[e1-1][ads[k+1].a[f1]]) {
+                e1--;
+            }
+            while (ads[k+1].d[f1] <= e1) {
+                f1--;
+            }
+        } else if (f1 < M) {
+            g1 = f1 + 1;
+            while (query[e1-1] == hap_map[e1-1][ads[k+1].a[f1]]) {
+                e1--;
+            }
+            while (g1 < M && ads[k+1].d[g1] <= e1) {
+                g1++;
+            }
+        }
+        e = e1;
+        f = f1;
+        g = g1;
+    }
+
+    #if 0 /* Move this to another function */
     for (size_t i = f; i < g; ++i) {
         report(-1 /* query */, ads[N].a[i], e, N);
         ++n_tot;
         tot_len += N-e;
     }
+    #endif
 }
+#endif
 
 // This fixes a and d between two indexes [start, stop[ given the previous a and d's
 // Algorithm 2 in paper
@@ -550,6 +560,39 @@ a_d_arrays_at_pos process_matrix_sequentially(const hap_map_t& hap_map, const si
         if (effective_stop == N) {
             algorithm_4_ReportSetMaximalMatches(hap_map[N-1], N, N, a, d, report); // Special case
         }
+    }
+
+    // Return a and d at stop position
+    return {effective_stop, a, d};
+}
+
+// PBWT Process Matrix from position start to position stop (if stop is 0 process to the end)
+a_d_arrays_at_pos long_matches_process_matrix_sequentially(const hap_map_t& hap_map, const size_t start, const size_t stop = 0, const size_t L = 100, const ppa_t& given_a = {}, const d_t& given_d = {}, const std::function<void (size_t ai, size_t bi, size_t start, size_t end)> &report = nullptr) {    const size_t effective_stop = stop ? stop : hap_map.size();
+    const size_t N = hap_map.size(); // Number of variant sites (total)
+    const size_t M = hap_map[0].size(); // Number of haplotypes
+
+    ppa_t a(M), b(M);
+    if (given_a.size()) { // If a is given copy it
+        std::copy(given_a.begin(), given_a.end(), a.begin());
+    } else { // Else use natural order (0,1,2,...,M-1)
+        std::iota(a.begin(), a.end(), 0);
+    }
+
+    d_t d(M), e(M);
+    if (given_d.size()) { // If d is given copy it
+        std::copy(given_d.begin(), given_d.end(), d.begin());
+    } else { // Else use a d filled with "start"
+        std::fill(d.begin(), d.end(), start);
+    }
+
+    size_t i0 = start ? M : 0; // For performance, see Durbin "matchLongWithin2()"
+    for (size_t k = start; k < effective_stop; ++k) {
+        algorithm_3_ReportLongMatches(hap_map[k], N, k, L, a, d, i0, report);
+        algorithm_2_BuildPrefixAndDivergenceArrays(hap_map[k], k, a, b, d, e);
+    }
+
+    if (effective_stop == N) {
+        algorithm_3_ReportLongMatches(hap_map[N-1], N, N, L, a, d, i0, report); // Special case
     }
 
     // Return a and d at stop position
@@ -838,8 +881,8 @@ std::vector<matches_t> report_matches_in_parallel_a_d_sequential(const hap_map_t
     return matches;
 }
 
-template<const bool TO_FILES = false>
-std::vector<matches_t> report_matches_in_parallel(const hap_map_t& hap_map, const size_t THREADS = 1, const std::string ofname = "") {
+template<const bool TO_FILES = false, const size_t ALGORITHM = 4>
+std::vector<matches_t> report_matches_in_parallel(const hap_map_t& hap_map, const size_t THREADS = 1, const std::string ofname = "", const size_t L = 100) {
     auto positions_to_collect = generate_positions_to_collect(hap_map.size(), THREADS);
     auto a_d_arrays = generate_a_d_arrays_for_positions_in_parallel(hap_map, positions_to_collect);
 
@@ -847,7 +890,10 @@ std::vector<matches_t> report_matches_in_parallel(const hap_map_t& hap_map, cons
     std::vector<matches_t> matches(THREADS);
 
     for (size_t i = 0; i < THREADS; ++i) {
+        /* Lambda function to be executed by the threads */
         workers[i] = std::thread([=, &hap_map, &a_d_arrays, &matches]{
+
+            /* Report function when reporting is not to file */
             auto f = [&](size_t ai, size_t bi, size_t start, size_t end){
                 matches[i].push_back({
                     .a = ai,
@@ -857,38 +903,46 @@ std::vector<matches_t> report_matches_in_parallel(const hap_map_t& hap_map, cons
                 });
             };
 
+            /* Reporting to files if needed, each thread has a file with associated number, they can finally be concatenated */
             std::stringstream filename;
             filename << ofname << "_" << i;
             FILE* pFile = nullptr;
             if constexpr (TO_FILES) {
                 pFile = fopen(filename.str().c_str(), "w");
             }
+            /* To file reporting lambda that captures file stringstream for writing */
             auto report_to_file = [=](size_t ai, size_t bi, size_t start, size_t end){
                 fprintf(pFile, "MATCH\t%zu\t%zu\t%zu\t%zu\t%zu\n", ai, bi, start, end, end-start);
             };
+
+            /* Selection of the function to use for reporting */
+            std::function<void (size_t ai, size_t bi, size_t start, size_t end)> report;
+            if constexpr (TO_FILES) {
+                report = report_to_file;
+            } else {
+                report = f;
+            }
 
             // If first thread start at 0 else start at ending position of last thread
             const size_t start = (i == 0) ? 0 : a_d_arrays[i-1].pos;
             // If last thread set stop to special value of 0 else stop at position
             const size_t stop = (i == THREADS-1) ? 0 : a_d_arrays[i].pos;
-            if constexpr (TO_FILES) {
-                if (i == 0) {
-                    // The first thread processes from natural order (empty a,d arrays given)
-                    process_matrix_sequentially<true /* Report */>(hap_map, start, stop, {/*a*/}, {/*d*/}, report_to_file);
-                } else {
-                    process_matrix_sequentially<true /* Report */>(hap_map, start, stop, a_d_arrays[i-1].a, a_d_arrays[i-1].d, report_to_file);
-                }
-                fclose(pFile);
+
+            if constexpr (ALGORITHM == 3) {
+                long_matches_process_matrix_sequentially(hap_map, start, stop, L, (i ? a_d_arrays[i-1].a : ppa_t()), (i ? a_d_arrays[i-1].d : d_t()), report);
+            } else if constexpr (ALGORITHM == 4) {
+                // The first thread processes from natural order (empty a,d arrays given)
+                process_matrix_sequentially<true /* Report */>(hap_map, start, stop, (i ? a_d_arrays[i-1].a : ppa_t()), (i ? a_d_arrays[i-1].d : d_t()), report);
             } else {
-                if (i == 0) {
-                    // The first thread processes from natural order (empty a,d arrays given)
-                    process_matrix_sequentially<true /* Report */>(hap_map, start, stop, {/*a*/}, {/*d*/}, f);
-                } else {
-                    process_matrix_sequentially<true /* Report */>(hap_map, start, stop, a_d_arrays[i-1].a, a_d_arrays[i-1].d, f);
-                }
+                std::cerr << "Unknown algorithm number " << ALGORITHM << std::endl;
+            }
+
+            if constexpr (TO_FILES) {
+                fclose(pFile);
             }
         });
     }
+
     //std::cerr << "Running with " << THREADS << " threads " << std::endl;
     for (auto& t : workers) {
         t.join();
