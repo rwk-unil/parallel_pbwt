@@ -10,6 +10,36 @@ constexpr size_t MAX_THREADS = 4;
 // Benchmark definitions //
 ///////////////////////////
 
+#ifdef EXPERIMENTAL
+static void BM_alg2_ab_copy(benchmark::State& state) {
+    auto hap_map = read_from_macs_file<bool>("11k.macs");
+
+    a_d_arrays_at_pos result;
+
+    // BENCHMARKED CODE
+    for (auto _ : state) {
+        result = process_matrix_sequentially(hap_map, 0);
+    }
+    // END BENCHMARKED CODE
+}
+
+static void BM_alg2_ab_linked_list(benchmark::State& state) {
+    auto hap_map = read_from_macs_file<bool>("11k.macs");
+
+    a_d_arrays_at_pos result;
+
+    // BENCHMARKED CODE
+    for (auto _ : state) {
+        result = process_matrix_sequentially_linked_list(hap_map, 0);
+    }
+    // END BENCHMARKED CODE
+}
+
+// Reference
+BENCHMARK(BM_alg2_ab_copy);
+BENCHMARK(BM_alg2_ab_linked_list);
+#endif
+
 // Benchmark how long it takes to generate the THREADS-1 required starting a and d arrays
 static void BM_generate_a_d_arrays_sequentially(benchmark::State& state) {
     const size_t THREADS = state.range(0); // Number of positions required (to start THREADS threads)
@@ -71,6 +101,18 @@ static void BM_report_matches_in_parallel_a_d_sequentially_generated(benchmark::
     // END BENCHMARKED CODE
 }
 
+static void BM_report_long_matches_in_parallel(benchmark::State& state) {
+    auto hap_map = read_from_macs_file<bool>("11k.macs");
+
+    std::vector<matches_t> result;
+
+    // BENCHMARKED CODE
+    for (auto _ : state) {
+        result = report_matches_in_parallel<false, 3 /*algorithm*/>(hap_map, state.range(0), "", 1000 /* L */);
+    }
+    // END BENCHMARKED CODE
+}
+
 static void BM_report_matches_in_parallel(benchmark::State& state) {
     auto hap_map = read_from_macs_file<bool>("11k.macs");
     //auto hap_map = read_from_bcf_file(INPUT_FILE);
@@ -102,6 +144,8 @@ BENCHMARK(BM_report_matches_sequential);
 BENCHMARK(BM_report_matches_in_parallel_a_d_sequentially_generated)->Range(2, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
 // Second strategy
 BENCHMARK(BM_report_matches_in_parallel)->Range(2, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
+// Long Matches
+BENCHMARK(BM_report_long_matches_in_parallel)->Range(1, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
 
 #if 0
 // This will change how much the parallelisation improves the runtime
