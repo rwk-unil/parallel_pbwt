@@ -808,7 +808,8 @@ std::vector<a_d_arrays_at_pos> generate_a_d_arrays_for_positions_in_parallel(con
     return a_d_arrays;
 }
 
-matches_t report_matches_sequentially(const hap_map_t& hap_map) {
+template<const int ALGORITHM = 4>
+matches_t report_matches_sequentially(const hap_map_t& hap_map, const size_t L = 1000) {
     matches_t matches;
     auto f = [&](size_t ai, size_t bi, size_t start, size_t end){
         matches.push_back({
@@ -819,7 +820,12 @@ matches_t report_matches_sequentially(const hap_map_t& hap_map) {
         });
     };
 
-    process_matrix_sequentially<true /* Report Matches */>(hap_map, 0, 0, {}, {}, f);
+    if constexpr (ALGORITHM == 3) {
+        long_matches_process_matrix_sequentially(hap_map, 0, 0, L, {}, {}, f);
+    } else if constexpr (ALGORITHM == 4) {
+        (void)L;
+        process_matrix_sequentially<true /* Report Matches */>(hap_map, 0, 0, {}, {}, f);
+    }
 
     return matches;
 }
