@@ -43,7 +43,7 @@ BENCHMARK(BM_alg2_ab_linked_list);
 // Benchmark how long it takes to generate the THREADS-1 required starting a and d arrays
 static void BM_generate_a_d_arrays_sequentially(benchmark::State& state) {
     const size_t THREADS = state.range(0); // Number of positions required (to start THREADS threads)
-    auto hap_map = read_from_macs_file<bool>("11k.macs"); // TODO CHANGE FILE
+    auto hap_map = read_from_macs_file<bool>("11k.macs");
     //auto hap_map = read_from_bcf_file(INPUT_FILE);
     const size_t N = hap_map.size(); // Number of variant sites
     auto positions_to_collect = generate_positions_to_collect(N, THREADS);
@@ -70,6 +70,20 @@ static void BM_generate_a_d_arrays_in_parallel(benchmark::State& state) {
     // BENCHMARKED CODE
     for (auto _ : state) {
         result = generate_a_d_arrays_for_positions_in_parallel(hap_map, positions_to_collect);
+    }
+    // END BENCHMARKED CODE
+}
+
+// Benchmark how long it takes to report long matches
+static void BM_report_long_matches_sequential(benchmark::State& state) {
+    auto hap_map = read_from_macs_file<bool>("11k.macs");
+    //auto hap_map = read_from_bcf_file(INPUT_FILE);
+
+    matches_t result;
+
+    // BENCHMARKED CODE
+    for (auto _ : state) {
+        result = report_matches_sequentially</* algorithm */ 3>(hap_map);
     }
     // END BENCHMARKED CODE
 }
@@ -134,18 +148,20 @@ static void BM_report_matches_in_parallel(benchmark::State& state) {
 // this value-1 is the number of starting positions generated (because first position is natural order)
 
 // Generate a and d sequentially (single thread)
-BENCHMARK(BM_generate_a_d_arrays_sequentially)->Range(2, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
+BENCHMARK(BM_generate_a_d_arrays_sequentially)->DenseRange(2, MAX_THREADS, 1)->MeasureProcessCPUTime()->UseRealTime()->Iterations(10);
 // Generate a and d in parallel with sequential fix (range-1 threads + sequential fix)
-BENCHMARK(BM_generate_a_d_arrays_in_parallel)->Range(2, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
+BENCHMARK(BM_generate_a_d_arrays_in_parallel)->DenseRange(2, MAX_THREADS, 1)->MeasureProcessCPUTime()->UseRealTime()->Iterations(10);
 
 // Reference
-BENCHMARK(BM_report_matches_sequential);
+BENCHMARK(BM_report_matches_sequential)->UseRealTime()->Iterations(10);
 // First strategy
-BENCHMARK(BM_report_matches_in_parallel_a_d_sequentially_generated)->Range(2, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
+//BENCHMARK(BM_report_matches_in_parallel_a_d_sequentially_generated)->Range(2, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
 // Second strategy
-BENCHMARK(BM_report_matches_in_parallel)->Range(2, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
+BENCHMARK(BM_report_matches_in_parallel)->DenseRange(2, MAX_THREADS, 1)->MeasureProcessCPUTime()->UseRealTime()->Iterations(10);
+// Reference
+BENCHMARK(BM_report_long_matches_sequential)->UseRealTime()->Iterations(10);
 // Long Matches
-BENCHMARK(BM_report_long_matches_in_parallel)->Range(1, MAX_THREADS)->MeasureProcessCPUTime()->UseRealTime();
+BENCHMARK(BM_report_long_matches_in_parallel)->DenseRange(2, MAX_THREADS, 1)->MeasureProcessCPUTime()->UseRealTime()->Iterations(10);
 
 #if 0
 // This will change how much the parallelisation improves the runtime
