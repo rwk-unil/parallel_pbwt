@@ -123,7 +123,7 @@ std::vector<std::vector<T> > read_from_bcf_file(const std::string& filename, siz
     // https://github.com/samtools/htslib/blob/develop/htslib/synced_bcf_reader.h
     bcf_srs_t * sr = bcf_sr_init();
 	sr->collapse = COLLAPSE_NONE;
-	sr->require_index = 1;
+	sr->require_index = 0;
 
     bcf_sr_add_reader(sr, filename.c_str());
     size_t n_samples = bcf_hdr_nsamples(sr->readers[0].header);

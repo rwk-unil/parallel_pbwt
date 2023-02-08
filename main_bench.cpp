@@ -3,8 +3,8 @@
 
 #include <string>
 
-constexpr size_t MAX_THREADS = 4;
-//const std::string INPUT_FILE = "chr20_bi_allelic.bcf";
+constexpr size_t MAX_THREADS = 12;
+const std::string INPUT_FILE = "chr20_bi_allelic.bcf";
 
 ///////////////////////////
 // Benchmark definitions //
@@ -43,8 +43,8 @@ BENCHMARK(BM_alg2_ab_linked_list);
 // Benchmark how long it takes to generate the THREADS-1 required starting a and d arrays
 static void BM_generate_a_d_arrays_sequentially(benchmark::State& state) {
     const size_t THREADS = state.range(0); // Number of positions required (to start THREADS threads)
-    auto hap_map = read_from_macs_file<bool>("11k.macs");
-    //auto hap_map = read_from_bcf_file(INPUT_FILE);
+    //auto hap_map = read_from_macs_file<bool>("11k.macs"); // TODO CHANGE FILE
+    auto hap_map = read_from_bcf_file(INPUT_FILE);
     const size_t N = hap_map.size(); // Number of variant sites
     auto positions_to_collect = generate_positions_to_collect(N, THREADS);
 
@@ -60,8 +60,8 @@ static void BM_generate_a_d_arrays_sequentially(benchmark::State& state) {
 // Benchmark how long it takes to generate the THREADS-1 required starting a and d arrays with THREADS-1 threads
 static void BM_generate_a_d_arrays_in_parallel(benchmark::State& state) {
     const size_t THREADS = state.range(0); // Number of positions required (to start THREADS threads)
-    auto hap_map = read_from_macs_file<bool>("11k.macs");
-    //auto hap_map = read_from_bcf_file(INPUT_FILE);
+    //auto hap_map = read_from_macs_file<bool>("11k.macs");
+    auto hap_map = read_from_bcf_file(INPUT_FILE);
     const size_t N = hap_map.size(); // Number of variant sites
     auto positions_to_collect = generate_positions_to_collect(N, THREADS);
 
@@ -90,8 +90,8 @@ static void BM_report_long_matches_sequential(benchmark::State& state) {
 
 // Benchmark how long it takes to report set maximal matches
 static void BM_report_matches_sequential(benchmark::State& state) {
-    auto hap_map = read_from_macs_file<bool>("11k.macs");
-    //auto hap_map = read_from_bcf_file(INPUT_FILE);
+    //auto hap_map = read_from_macs_file<bool>("11k.macs");
+    auto hap_map = read_from_bcf_file(INPUT_FILE);
 
     matches_t result;
 
@@ -103,14 +103,14 @@ static void BM_report_matches_sequential(benchmark::State& state) {
 }
 
 static void BM_report_matches_in_parallel_a_d_sequentially_generated(benchmark::State& state) {
-    auto hap_map = read_from_macs_file<bool>("11k.macs");
-    //auto hap_map = read_from_bcf_file(INPUT_FILE);
+    //auto hap_map = read_from_macs_file<bool>("11k.macs");
+    auto hap_map = read_from_bcf_file(INPUT_FILE);
 
     std::vector<matches_t> result;
 
     // BENCHMARKED CODE
     for (auto _ : state) {
-        result = report_matches_in_parallel_a_d_sequential(hap_map, state.range(0));
+        result = report_matches_in_parallel<false, 3 /*algorithm*/>(hap_map, state.range(0), "", 1000 /* L */);
     }
     // END BENCHMARKED CODE
 }
@@ -128,8 +128,8 @@ static void BM_report_long_matches_in_parallel(benchmark::State& state) {
 }
 
 static void BM_report_matches_in_parallel(benchmark::State& state) {
-    auto hap_map = read_from_macs_file<bool>("11k.macs");
-    //auto hap_map = read_from_bcf_file(INPUT_FILE);
+    //auto hap_map = read_from_macs_file<bool>("11k.macs");
+    auto hap_map = read_from_bcf_file(INPUT_FILE);
 
     std::vector<matches_t> result;
 
