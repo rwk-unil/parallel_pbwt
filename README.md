@@ -1,5 +1,7 @@
 # Parallel Positional Burrows-Wheeler Transform Algorithms
 
+Publication and results : [In Oxford Bioinformatics Advances (open access)](https://academic.oup.com/bioinformaticsadvances/advance-article/doi/10.1093/bioadv/vbad021/7067758?searchresult=1)
+
 ## Dependencies
 
 - This software depends on [htslib](https://github.com/samtools/htslib) for reading VCF/BCF files (version 1.12).
